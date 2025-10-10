@@ -1,11 +1,130 @@
-.htaccess
-css.php
-rpc/
-sites/site*/admin/
-sites/site*/private/
-sites/site*/public/admin/
-sites/site*/public/setup/
-sites/site*/public/theme/
-textpattern/
-HISTORY.txt
-README.txt
+ACCIÓN parcial R1.1 ES
+Ambiente
+	fecha = registro
+		año: N(4)
+		mes: N(2)
+		dia: N(2)
+	Fin registro 
+	NIÑOS = registro 
+		clave_niños = registro 
+			id_pais: N(5)
+			id_niño: N(5)
+		fin registro
+		nya:AN (30)
+		puntaje_buen_comportamiento: N(2)
+		id_regalo:N(5)
+		nombre_regalo: AN(20)
+		fecha_registro: fecha 
+	Fin registro
+
+	arch_niños, arch_sal: archivo de NIÑOS ordenado por clave_niños
+	reg_ni, reg_sal, aux: NIÑOS
+
+	EVENTOS = registro
+		clave_eventos = registro 
+			id_pais:N(5)
+			id_niño:N(5)
+		fin registro 
+		cod_evento:(0..99)
+		fecha_evento:fecha 
+		detalle: AN(20)
+		puntaje_cambio: N(5)
+		tipo: ("A", "R", " ")
+		id_regalo_deseado:N(5)
+		regalo_deseado: AN (20)
+	Fin registro
+
+	arch_eventos: archivo de EVENTOS ordenado por clave_eventos y cod_evento
+	reg_ev: EVENTOS
+
+	niños_nuevos: entero
+	mejor_puntaje: entero
+
+	Subacción Leer_Niños 
+		Leer (arch_niños, reg_ni)
+		Si FDA (arch_ni) entonces
+			reg_ni.clave_niños:= HV
+		Fin si
+	Fin acción
+
+	Subacción Leer_eventos
+		Leer (arch_eventos, reg_ev)
+		Si FDA (arch_eventos) entonces
+			reg_ev.clave_eventos:= HV
+		fin si
+	Fin acción 
+
+	Subacción Modif_niños //alta de un niño
+		Si reg_ev.clave_eventos <> " " entonces
+			aux.clave_niños:= reg_ev.clave_eventos
+			aux.puntaje_buen_comportamiento:= reg_ev.puntaje_cambio
+			aux.id_regalo:= reg_ev.id_regalo_deseado
+			aux.nombre_regalo:= reg_ev.regalo_deseado
+			aux.fecha_registro.= reg_ev.fecha_evento
+		Fin si 
+	Fin acción 
+
+	Subacción Proceso_Movimientos
+		Si reg_ev.cod_evento = 0 entonces //alta de un niño
+			Modif_niños
+		SINO
+			Si reg_ev.cod_evento = 99 // baja de un niño
+				aux.fecha_retiro:= reg_ev.fecha_evento
+			SINO //actualización de puntaje y/o regalo
+				SEGÚN reg_ev.tipo hacer
+					"A": 
+						aux.puntaje_buen_comportamiento:= reg_ni.puntaje_buen_comportamiento + reg_ev.puntaje_cambio
+					"R": 
+						aux.puntaje_buen_comportamiento:= reg_ni.puntaje_buen_comportamiento - reg_ev.puntaje_cambio
+					" ":
+						aux.id_regalo:= reg_ev.id_regalo_deseado
+						aux.nombre_regalo:= reg_ev.regalo_deseado
+				Fin segun
+			Fin si 
+		Fin si 
+	Fin acción 
+
+Proceso
+	ABRIR E/(arch_ni)
+	ABRIR E/(arch_eventos)
+	ABRIR/S (arch_sal)
+
+	Leer_Niños
+	Leer_eventos
+
+	niños_nuevos:= 0
+	mejor_puntaje:= 0
+
+	MIENTRAS (arch_ni <> HV) o (arch_eventos <> HV) hacer
+		Si (reg_ni.clave_niños < reg_ev.clave_eventos) entonces //no hubo movimientos 
+			GRABAR (arch_sal, reg_ni)
+		SINO
+			Si (reg_ni.clave_niños = reg_ev.clave_eventos) entonces// hubo movimiento
+				aux:= reg_ni
+				MIENTRAS (reg_ni.clave_niños = reg_ev.clave_eventos) hacer 
+					Proceso_Movimientos
+					Leer_eventos
+				Fin mientras
+				reg_sal:= aux
+				GRABAR (arch_sal, reg_sal)
+				Leer_Niños
+			SINO //niño nuevo
+				aux.clave_niños:= reg_ev.clave_eventos
+				aux.puntaje_buen_comportamiento:= 0
+				aux.id_regalo:= reg_ev.id_regalo_deseado
+				aux.nombre_regalo:= reg_ev.regalo_deseado
+				aux.fecha_registro:= reg_ev.fecha_evento
+
+				MIENTRAS (aux.clave_niños = reg_ev.clave_eventos) hacer
+					Proceso_Movimientos
+					Leer_eventos
+				Fin mientras
+				reg_sal:= aux
+				GRABAR (arch_sal, reg_sal)
+			Fin si 
+		Fin si 
+	Fin Mientras
+
+	CERRAR (arch_ni)
+	CERRAR (arch_eventos)
+	CERRAR (arch_sal)
