@@ -1,0 +1,127 @@
+Acción Parcial 2-A ES
+Ambiente
+	Fecha = registro
+		año: N(4)
+		mes: N(2)
+		dia: N(2)
+	Fin registro
+	CLIENTES = registro
+		clave_cli = registro
+			id_suc: N(6)
+			id_cli: N(6)
+		fin registro
+		nya: AN(30)
+		saldoactual: N(4)
+		fecha_alta: fecha
+		fecha_baja: fecha
+	Fin registro
+
+	arch_cli, arch_sal: archivo de CLIENTES ordenado por clave_cli
+	reg_cli, reg_sal, aux: CLIENTES
+
+	MOVIMIENTOS = registro
+		clave_mov = registro
+			id_suc: N(6)
+			id_cli: N(6)
+		fin registro
+		cod_mov: N(2)
+		nya: AN(30)
+		fecha_mov: fecha
+		monto: N(4)
+		detalle: AN(20)
+		categoria: ("1..6")
+		tipo: ("I", "E")
+	Fin registro
+
+	arch_mov: archivo de MOVIMIENTOS ordenado por clave_mov y cod_mov
+
+	cli_nuevos: entero
+
+	Subacción Proceso_movim
+		Si reg_mov.cod_mov = 0 entonces //es una alta
+			Modif_Clientes
+		SINO
+			Si reg_mov.cod_mov = 99 entonces //es una baja
+				aux.fecha_baja:= reg_mov.fecha_mov
+			SINO //es una transacción
+					Si reg_mov.tipo = "I" entonces //es un ingreso de dinero en cuenta
+						reg_sal:= aux
+						reg_sal.saldoactual:= reg_cli.saldoactual + reg_mov.monto
+					SINO
+						Si reg_mov.tipo = "E" entonces //es un egreso de dinero en cuenta
+							reg_sal:= aux
+							reg_sal.saldoactual:= reg_cli.saldoactual - reg_mov.monto
+					Fin si 
+			Fin si
+		Fin si
+		GRABAR (arch_sal, reg_sal)
+	Fin Subacción
+
+	Subacción Modif_Clientes
+		Si reg_mov.tipo <> "" entonces 
+			aux.clave_cli:= reg_mov.clave_mov
+			aux.nya:= reg_mov.nya
+			aux.saldoactual := reg_mov.monto
+			aux.fechaalta := reg_mov.fecha_mov
+			aux.fecha_baja:= ""
+			cli_nuevos:= cli_nuevos + 1
+		Fin si 
+	Fin Subacción
+
+	Subacción Leer_Movimiento es
+  		LEER(arch_mov, reg_mov)
+  		SI FDA(arch_mov) ENTONCES 
+    		reg_mov.clave_mov := HV
+  		FSI;
+	FAcción
+
+	Subacción Leer_clientes es
+  		LEER(arch_cli, reg_cli)
+  		SI FDA(arch_cli) ENTONCES 
+    		reg_cli.clave_cli : = HV
+  		FSI;
+  	FAccion
+
+
+Proceso
+	Abrir E/(arch_cli)
+	Abrir S/(arch_sal)
+	Abrir E/(arch_mov)
+	cli_nuevos:= 0
+	Leer (arch_cli,reg_cli)
+	Leer (arch_mov,reg_mov)
+
+	Mientras (arch_cli <> HV) o (arch_mov <> HV) hacer
+		Si (reg_cli.clave_cli < reg_mov.clave_mov) entonces //no hubo movimientos
+			GRABAR (arch_sal, reg_cli)
+			Leer (arch_cli,reg_cli )
+		SINO
+			Si (reg_cli.clave_cli = reg_mov.clave_mov) entonces //hubo movimiento
+				aux:= reg_cli
+				MIENTRAS reg_cli.clave_cli = reg_mov.clave_mov hacer
+					Proceso_movim
+					Leer_Movimiento
+				Fin mientras
+				reg_sal:= aux
+				GRABAR (arch_sal, reg_sal)
+				Leer_clientes
+			SINO
+				aux.clave_cli:= reg_mov.clave_mov
+				aux.nya:= reg_mov.nya
+				aux.saldoactual:= reg_mov.saldoactual
+				aux.fechaalta:= reg_mov.fecha_mov
+				aux.fecha_baja:= ""
+				
+				Mientras aux.clave = reg_mov.clave hacer
+					Proceso_movim
+					Leer_Movimiento
+				Fin Mientras
+				reg_sal:= aux
+				GRABAR (arch_sal, reg_sal)
+			Fin si
+		Fin SI 
+	Fin mientras
+
+	CERRAR (arch_cli)
+	CERRAR (arch_mov)
+	CERRAR (arch_sal)
