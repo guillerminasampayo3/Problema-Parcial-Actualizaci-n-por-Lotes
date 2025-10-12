@@ -1,0 +1,122 @@
+ACCIÓN PARC2024 COM A ES
+Ambiente
+	PAISES = Registro
+		codigo_pais: N(6)
+		apuestas_a_favor: N(4)
+		apuestas_en_contra: N(4)
+		goles_esperados: N(2)
+		tarjetas_rojas_esperadas: N(2)
+	Fin Registro
+	p,aux, sal: PAISES
+	arch_p, arch_sal: archivo de PAISES ordenado por codigo_pais
+	fecha = Registro
+		año: N(4)
+		mes: N(2)
+		dia: N(2)
+	Fin Registro
+	PRODE = Registro
+		codigo_pais: N(6)
+		fecha_apuesta: fecha
+		apuesta_a_favor: (S/N)
+		goles: N(2)
+		tarjetas_rojas: N(2)
+	Fin Registro
+	pro: PRODE
+	arch_pro: archivo de PRODE ordenado por codigo_pais y fecha_apuesta
+	TROFEOS = Registro
+		codigo_pais: N(6)
+		cantidad_de_copas: N(3)
+	Fin Registro
+	t: TROFEOS
+	arch_t: archivo de TROFEOS indexado por codigo_pais
+	POPULARES = Registro
+		codigo_pais: N(6)
+	Fin Registro
+	pop: POPULARES
+	arch_pop: archivo de POPULARES
+
+	acum_goles, acum_tarjetas, total_apuestas: entero
+	prom_goles,prom_tarjetas: real
+
+	Subacción ProcesoMovim
+		Si (p.apuestas_a_favor/p.apuestas_en_contra <= p.apuestas_en_contra) y (t.cantidad_de_copas > 2) entonces
+			pop.codigo_pais:= p.codigo_pais
+			ELIMINAR (arch_p, p)
+		SINO
+			Según pro.apuesta_a_favor hacer 
+				"S": aux.apuestas_a_favor:= p.apuestas_a_favor + 1
+				"N": aux.apuestas_en_contra:= p.apuestas_en_contra + 1
+			Fin Según 
+			acum_goles := acum_goles + pro.goles
+			acum_tarjetas := acum_tarjetas + pro.tarjetas_rojas
+			total_apuestas := aux.apuestas_a_favor + aux.apuestas_en_contra
+			prom_goles := acum_goles / total_apuestas
+			prom_tarjetas := acum_tarjetas / total_apuestas
+
+			aux.goles_esperados:= prom_goles
+			aux.tarjetas_rojas_esperadas:= prom_tarjetas
+	Fin Subacción
+
+	Subacción Modifpaises 
+		Si pro.codigo_pais <> ".." entonces
+			Según pro.apuesta_a_favor hacer 
+				"S": aux.apuestas_a_favor:= 1
+				"N": aux.apuestas_en_contra:= 1
+			Fin Según
+			aux.codigo_pais:= pro.codigo_pais
+			aux.goles_esperados:= pro.goles 
+			aux.tarjetas_rojas_esperadas:= pro.tarjetas_rojas
+		Fin Si
+	Fin Subacción
+
+	Subacción Leer_prode
+		Leer (arch_pro, pro)
+		SI FDA (arch_pro) hacer
+			pro.codigo_pais:= HV
+		FIN SI  
+	Fin Subacción
+
+	Subacción Leer_paises
+		Leer (arch_p, p)
+		SI FDA (arch_p) hacer
+			p.codigo_pais:= HV
+		FIN SI  
+	Fin Subacción
+
+Proceso 
+	acum_goles, acum_tarjetas, total_apuestas:= 0
+	prom_goles,prom_tarjetas:= 0
+	Abrir E/(arch_p)
+	Abrir E/(arch_t)
+	Abrir E/(arch_pro)
+	Abrir S/(arch_pop)
+	Abrir S/(arch_sal)
+	Leer (arch_p,p)
+	Leer(arch_t, t)
+	Leer(arch_pro, pro)
+
+	Mientras (p.codigo_pais <> HV) o (pro.codigo_pais <> HV) hacer
+		Si (p.codigo_pais < pro.codigo_pais) entonces //no hubo movimientos
+			GRABAR (arch_sal, p)
+		SINO
+			SI (p.codigo_pais = pro.codigo_pais) entonces//hubo movimientos
+				aux:= p
+				Mientras (p.codigo_pais = pro.codigo_pais) hacer
+					ProcesoMovim
+					Leer_prode
+				Fin Mientras
+				GRABAR (arch_sal, aux)
+				Leer_paises
+			SINO//alta de un pais
+				Modifpaises
+				MIENTRAS (aux.codigo_pais = pro.codigo_pais) hacer
+					ProcesoMovim
+					Leer_prode
+				Fin Mientras
+				sal:= aux
+				GRABAR (arch_sal,sal)
+			Fin Si 
+		Fin Si 
+	Fin Mientras
+Fin Proceso
+Fin ACCIÓN
