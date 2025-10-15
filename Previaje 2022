@@ -1,0 +1,116 @@
+ACCIÓN ej1 ES 
+Ambiente
+	FECHA = Registro
+		año = N(4)
+		mes = N(2)
+		dia = N(2)
+	fin registro
+
+	TARJETA = Registro
+		DNI = N(8)
+		numCuenta = N(8)
+		crédito = N(10)
+		ultCarga = fecha
+	Fin registro
+	tarj, aux, sal: TARJETA
+	archTarj, archSalida: archivo de TARJETA indexado por DNI
+
+	TURISTA = registro
+		DNI = N(8)
+		nombre = AN (100)
+		fechaNac = fecha
+		tel = AN (100)
+	fin registro
+	tur: TURISTA
+	archTur: archivo de TURISTA indexado por DNI
+
+	FACTURAS = Registro
+		nro = N(10)
+		DNI = n(8)
+		idServicio = N(10)
+		monto = N(2)
+		fechaCarga = fecha 
+	fin registro
+	fact: FACTURAS
+	archFac: archivo de FACTURAS ordenado por nro y DNI
+
+	A: arreglo de [1..200] de enteros
+	fueraPlazo: entero
+
+	Subacción ModifTarjeta
+		Si (fact.fechaCarga.año = 2022) entonces //movimiento, cargar el credito
+			Si (fact.fechaCarga.mes = 09) entonces
+				Si (fact.fechaCarga.dia <= 15) entonces
+					Si (A[fact.idServicio] = 1) entonces
+						aux.DNI:= fact.DNI
+						aux.numCuenta:= tarj.numCuenta
+						Si (tarj.credito < 100.000) y () //incompleto
+						aux.credito:= tarj.credito + (fact.monto/2)
+						aux.ultCarga:= fact.fechaCarga
+					SINO
+						Esc("error, no está habilitado")
+					Fin Si 
+				SINO
+					Esc("error, se encuentra fuera de la fecha aceptada")
+					fueraPlazo:= fueraPlazo +1
+				Fin Si
+			Fin Si
+		Fin Si
+	Fin Subacción
+
+	Subacción AltaTurista
+		aux.DNI:= fact.dni
+		aux.numCuenta:= obtener_nrocuenta()
+		aux.credito:= (fact.monto/2)
+		aux.ultCarga:= fact.fechaCarga
+
+		tur.dni:= fact.dni
+		tur.nombre:= " "
+		tur.fechaNac:= " "
+		tur.tel:= " "
+	Fin Subacción
+
+
+Proceso
+	Abrir E/(archTur)
+	Abrir E/(archFac)
+	Abrir E/(archTarj)
+	Abrir S/(archSalida)
+	Leer (archFac, fact)
+	Leer (archTur, tur)
+	Leer (archTarj, tarj)
+
+	Mientras NFDA (archFac) hacer
+		tarj.dni:= fact.dni
+		Si EXISTE entonces
+			aux:= tarj
+			Mientras (tarj.dni = fact.dni) hacer
+				ModifTarjeta
+				Leer (archFac, fact)
+			Fin mientras
+			sal:= aux
+			GRABAR (archSalida, sal)
+		SINO
+			aux:= tarj
+			AltaTurista
+			Leer (archFac, fact)
+
+			Mientras (aux.dni = fact.dni) hacer
+				ModifTarjeta
+				Leer (archFact, fact)
+			Fin Mientras
+
+			sal:= aux
+			GRABAR (archSalida, sal)
+		FIn SI
+	Fin mientras
+
+	Esc("la cantidad de facturas fuera de plazo fueron de" fueraPlazo)
+
+	cerrar (archFac)
+	cerrar(archSalida)
+	cerrar(archTur)
+	cerrar(archTarj)
+
+Fin Proceso
+Fin ACCIÓN
