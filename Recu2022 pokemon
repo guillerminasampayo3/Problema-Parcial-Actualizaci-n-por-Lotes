@@ -1,0 +1,130 @@
+ACCIÓN recu2022 (pokemones: arreglo de [1..151] de alfanuméricos) ES
+Ambiente
+	fecha = Registro
+		año: N(4)
+		mes: N(2)
+		día: N(2)
+	Fin Registro
+	CAPTURAS = Registro
+		clave1= registro 
+			cod_región: N(4)
+			cod_usuario: N(10)
+		fin registro
+		cod_pokemon: (1..151)
+		puntos_experiencia: N(5)
+		fecha_captura: fecha
+		estado_pok: ("E", "I", "D")
+		estado_us: ("A", "S", "B")
+	Fin Registro
+	cap:CAPTURAS
+	arch_cap: archivo de CAPTURAS ordenado por clave1, cod_pokemon
+
+	USUARIOS = Registro
+		clave2 = registro
+			cod_región: N(4)
+			cod_usuario: N(10)
+		fin registro
+		correo: AN(50)
+		experiencia: N(7)
+	Fin Registro
+	us, sal,aux: USUARIOS
+	arch_us, arch_sal: archivo de USUARIOS ordenado por clave2
+
+	A: arreglo de [1..151] de enteros
+	posmayor, mayor: entero
+
+	Subacción Leer_capturas 
+		Leer (arch_cap, cap)
+		Si FDA (arch_cap) entonces
+		cap.clave1:= HV
+	Fin Subacción
+
+	Subacción Leer_usuarios
+		Leer(arch_us, us)
+		Si FDA (arch_us) entonces
+		us.clave2:= HV
+	Fin Subacción
+
+	Subacción Modif_usuarios
+		Si (cap.estado_us <> "S") entonces
+			aux.cod_región:= cap.cod_región
+			aux.cod_usuario:= cap.cod_usuario
+			aux.correo:= us.correo
+			Según cap.estado_pok hacer
+				"E": aux.experiencia:= us.experiencia + (cap.puntos_experiencia * 2)
+				"I": aux.experiencia:= us.experiencia + cap.puntos_experiencia
+				"D": aux.experiencia:= us.experiencia + cap.puntos_experiencia
+					A[cod_pokemon]:= A[cod_pokemon] +1
+			Fin Según
+		FIN SI 
+	Fin Subacción
+
+	Subacción Alta_usuario
+		Si (cap.cod_usuario) <> " " entonces
+			Si (cap.estado_us = "A") entonces
+				aux.cod_región:= cap.cod_región
+				aux.cod_usuario:= cap.cod_usuario
+				aux.correo:= " "
+				Según cap.estado_pok hacer
+					"E": aux.experiencia:= us.experiencia + (cap.puntos_experiencia * 2)
+					"I": aux.experiencia:= us.experiencia + cap.puntos_experiencia
+					"D": aux.experiencia:= us.experiencia + cap.puntos_experiencia
+						cont_d:= cont_d + 1 
+				Fin Según
+			Fin Si 
+		Fin Si 
+	Fin Subacción
+
+Proceso
+	Abrir E/(arch_cap)
+	Leer (arch_cap,cap)
+	Abrir E/(arch_us)
+	Leer (arch_us, us)
+	Abrir S/(arch_sal)
+
+	Para i:= 1 hasta 151 hacer
+		A[i]:= 0
+	Fin Para
+
+	cont_d:= 0 
+
+	MIENTRAS (cap.clave1 <> HV) o (us.clave2 <> HV) hacer
+		Si (us.cod_usuario < cap.cod_usuario) entonces //no hubo movimiento
+			GRABAR (arch_sal, us)
+		SINO 
+			Si (us.cod_usuario = cap.cod_usuario) entonces //hubo movimiento
+				aux:= us
+				MIENTRAS (us.cod_usuario = cap.cod_usuario) hacer 
+					Modif_usuarios
+					Leer_capturas
+				Fin Mientras
+				sal:= aux
+				GRABAR (arch_sal, sal) 
+			SINO //nuevo usuario
+				aux:= us
+				Alta_usuario
+				Mientras (aux.cod_usuario = cap.cod_usuario) hacer
+					Modif_usuarios
+					Leer_capturas
+				Fin Mientras
+				sal:= aux
+				GRABAR (arch_sal,sal)
+			Fin Si
+		Fin Si 
+	Fin Mientras
+
+	Para i:= 1 hasta 151 hacer
+		Si mayor < A[i] entonces
+			mayor:= A[i]
+			posmayor:= i
+		Fin Si
+	Fin Para
+
+	Esc("el pokemon en estado descansando que tiene mayor cant de usuarios es" pokemones[posmayor] "con" mayor "cant de usuarios")
+
+	Cerrar (arch_sal)
+	Cerrar(arch_us)
+	Cerrar (arch_cap)
+
+
+
